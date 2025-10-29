@@ -1,0 +1,15 @@
+Host az1
+  HostName 158.158.48.205
+  User azureuser
+  IdentityFile C:\Users\emrep\.ssh\cloud_tp
+  IdentitiesOnly yes
+  StrictHostKeyChecking no
+  Port 22
+
+Host az2
+  HostName 10.0.0.5
+  User azureuser
+  IdentityFile C:\Users\emrep\.ssh\cloud_tp
+  ProxyJump az1
+  IdentitiesOnly yes
+  StrictHostKeyChecking no

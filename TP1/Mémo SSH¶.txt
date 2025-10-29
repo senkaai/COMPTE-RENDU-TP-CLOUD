@@ -1,0 +1,176 @@
+Mémo SSH¶
+Allez, vous venez là pour voir les commandes à use, je vous mets des beaux blocs de code comme on aime.
+
+Si t'aimes pas, c'est que c'est l'heure d'arrêter de use ChatGPT hein.
+
+Ici on ne parle que de SSH client. Je ne mentionne pas une seule fois une commande ou une configuration serveur.
+C'est donc uniquement sur votre PC que vous faites tout ça à priori pour nos TPs.
+
+Aussi, on détaillera quedal du fonctionnement de SSH : je me contente ici d'en documenter l'utilisation, pour nous, les utilisateurs. 🐈
+
+Connexion simple¶
+# Commande SSH basique : connexion à 10.1.1.1 en tant que toto
+ssh toto@10.1.1.1
+
+# Ptite variation : si on veut préciser le port auquel on se connecte (22/tcp si on précise pas)
+# On indique 2222/tcp ici (toujours TCP par défaut avec SSH)
+ssh toto@10.1.1.1 -p 2222
+Gestion de clés¶
+Je rappelle au cas où : l'utilisation de clé c'est bien plus fort niveau sécu que de reposer sur un mot de passer pour vous identifier sur un serveur distant !
+
+SSH auth via keys
+
+# Génération d'une paire de clés
+ssh-keygen
+
+# On peut préciser quel algo on souhaite utiliser avec -t
+ssh-keygen -t rsa
+
+# Et on peut aussi préciser la longueur de la clé avec -b
+ssh-keygen -t rsa -b 4096
+
+# Par défaut, les clés s'enregistrent dans un chemin standard : ~/.ssh
+ls -l ~/.ssh
+.rw-------  464 it4 it4  2 Sep 16:39 id_rsa
+.rw-r--r--   99 it4 it4  2 Sep 16:39 id_rsa.pub
+Tip
+Un mot de passe (passphrase) est demandé lorsque vous générez une clé. Si vous laissez vide, la clé ne sera pas protégée par un mot de passe.
+L'idée c'est que la clé privée devient très précieuse car elle permet de se connecter à tous les serveurs où t'as posé ta clé publique, c'est giga sensible.
+Donc un vilain hacker, il veut voler des clés privées.
+Suffit que je vole le contenu de ton disque, et c'est cramé.
+Pour éviter ça : on protège la clé avec un password. Elle est inutilisable si on ne la débloque pas avec le password défini à la génération.
+Concrètement, la clé privée est chiffrée quand on défini une passphrase.
+
+Private Keys
+
+# On peut par la suite déposer la clé publique au bon endroit avec une commande dédiée
+# Cette commande va se connecter en SSH en tant que toto sur 10.1.1.1, puis poser la clé publique au bon endroit sur la machine distante
+ssh-copy-id toto@10.1.1.1
+
+# Vous pouvez ensuite vous connecter sans saisr de password :
+ssh toto@10.1.1.1
+
+# Si ta clé n'a pas un nom standard et/ou n'est pas dans un endroit standard, il faudra préciser son chemin avec -i
+ssh -i /home/toto/dossier_chelou/ma_super_clé toto@10.1.1.1
+Info
+Je rappelle que le caractère ~ fait référence au répertoire personne de l'utilisateur qui tape la commande.
+Donc sous Linux, si t'es connecté avec toto, écrire ~ c'est comme écrire /home/toto.
+Sous Windows, ça correspondra donc à C:/Users/toto. Sous MacOS j'crois c'est /Users/toto non ?
+
+Fichier de config SSH client¶
+# Vous pouvez vous créer un fichier de config SSH pour taper des commandes moins chiantes
+# Prenons la commande chiante et longue suivante :
+ssh -p 2222 -i ~/.ssh/cloud_tp toto@10.1.1.1
+
+# Vous la trouvez pas chiante ? Ok. Je rajoute une option histoire de vous convaincre.
+# Prenons la commande chiante et longue suivante :
+ssh -p 2222 -i ~/.ssh/cloud_tp -o StrictHostKeyChecking=no toto@10.1.1.1
+
+# Au lieu de taper ou copy/paste cette folie, on peut créer un fichier de config SSH client
+# Le fichier DOIT être dans le chemin standard : ~/.ssh/config
+cat ~/.ssh/config
+
+Host yolo
+  HostName 10.1.1.1
+  User toto
+  Port 2222
+  IdentityFile /home/toto/.ssh/cloud_tp
+  StrictHostKeyChecking no
+
+# On peut ensuite se connecter en tapant :
+ssh yolo
+
+# D'un coup, c'est moins chiant nan ?
+Note
+Vous pouvez évidemment mettre autant de Host que vous voulez dans ce fichier.
+Il supporte même les wildcards avec le caractère *.
+Genre Host *.meo.com indique une conf pour tous les hôtes qui se terminent par .meo.com.
+Ou encore 10.1.1.* pour une conf qui concernent tous les hôtes dont l'IP commence par 10.1.1..
+
+Agent SSH¶
+# Démarrer un agent SSH en fond
+# Sur Windows faut démarrer un service
+# Sur Linux on peut lancer un :
+eval $(ssh-agent)
+
+# Ajouter une clé à l'agent qui run en fond (peu importe l'OS)
+ssh-add ~/.ssh/cloud_tp
+
+# Un password sera demandé si la clé a été protégée par un password à la génération
+
+# Toutes les commandes suivantes utiliseront les clés ajoutées pour se co
+ssh yolo
+# Me connecte sans aucun prompt (aucun password demandé) même si la clé est protégée par un password (saisi lors de l'ajout à l'agent)
+
+# On peut faire suivre l'agent avec -A, il nous suivra sur la machine où on se connecte
+ssh -A yolo
+
+# Depuis la machine yolo, on peut faire une connexion SSH vers une autre machine, comme si on avait notre clé privée sur la machine yolo
+[it4@yolo]$ ssh toto@10.1.1.2
+Note
+Le -A se note ForwardAgent si on le définit dans le fichier config.
+
+Rebond SSH¶
+Ca arrive souvent que quand on gère plusieurs machines, on en expose qu'une seule en SSH, pour limiter la surface d'attaque et les risques.
+
+Note
+C'est un peu une des règles de sécurité infrastructure ultra élémentaire : on expose que le strict minimum.
+On diminue toujours au max la surface d'attaque, le nombre de machins exposés, et donc, on atténue au max les risques.
+
+Sauf que c'est chiant pour se connecter aux autres machines : je dois genre me connecter à la première, ptet avec un -A, puis taper une deuuuuxième commande pour me connecter à ma vraie destination.
+
+Trop chiant 🐈
+
+Rebond SSH à la rescousse. Supposons :
+
+j'ai déposé ma clé publique sur une machine A (je peux donc m'y co sans password)
+j'ai aussi déposé ma clé publique sur une machine B (je peux donc m'y co sans password)
+seule la machine A est exposée
+je peux me co à la machine A, puis, de là, à la machine B
+On parle donc par exemple de :
+
+# D'abord, depuis notre PC
+ssh -A toto@10.1.1.1
+# Avec le -A pour faire suivre mon agent
+
+# Puis, depuis la machine 10.1.1.1
+ssh toto@10.1.1.2
+# Ca marche sans password : j'ai fait suivre mon agent
+
+# Et encore on fait avec un cas simple où y'a pas d'options particulières
+On peut remplacer ces deux commandes en faisant une unique commande qui utilise un rebond SSH :
+
+on utilise l'option -J
+on indique qu'on veut se connecter à la machine B en "rebondissant" sur la machine A
+ssh -A -J toto@10.1.1.1 toto@10.1.1.2
+Note
+Le -J se note ProxyJump si on le définit dans le fichier config.
+
+Everything¶
+Ca devient très trèèèès pratique et puissant quand on combine tout ce qu'on a vu.
+
+Supposons qu'on doive se connecter à une machine B en passant par une machine A, comme ça :
+
+# Connexion à la machine A
+ssh -p 2222 -A toto@10.1.1.1
+
+# Puis, de là, connexion à la machine B
+ssh -p 3333 meow@10.1.1.2
+Remplaçons tout ce caca par un fichier config clean :
+
+Host machineA
+    HostName 10.1.1.1
+    User toto
+    Port 2222
+    ForwardAgent yes
+
+Host machineB
+    HostName 10.1.1.2
+    User meow
+    Port 3333
+    ProxyJump machineA
+On peut alors se connecter à la machine B, directement depuis notre poste, en tapant :
+
+ssh machineB
+Success
+SI C'EST PAS SEXY ALORS JE SAIS PAS MOI. 🐈
